@@ -1,0 +1,17 @@
+# CODESYS generated and local files
+*.bootinfo
+*.bootinfo_guids
+*.compileinfo
+*.precompilecache
+*.opt
+*.backup
+*.tmp
+*.temp
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Temporary/editor files
+~*
+*.bak
