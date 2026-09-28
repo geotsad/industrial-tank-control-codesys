@@ -1,102 +1,36 @@
-PROGRAM PRG_TankSimulation
-VAR
-
-    fbPlantTick : TON;
-	
-	fbMotorStartSim : TON;
-
-    rInletRatePctPerS : REAL := 2.0;
-
-    rOutletRatePctPerS : REAL := 1.0;
-
-END_VAR
-
-
-
-
-
-
 // ==========================================
-// INDUSTRIAL TANK - PROCESS SIMULATION
+// ANALOG INPUT PROCESSING - LT-101
 // ==========================================
 
 
-// Generate one process update approximately every second
+// 1. Validate transmitter signal
 
-fbPlantTick(
-    IN := NOT fbPlantTick.Q,
-    PT := T#1s
-);
-
-
-// ==========================================
-// TANK LEVEL SIMULATION
-// ==========================================
-
-IF fbPlantTick.Q THEN
-
-    // Water entering the tank
-    IF PLC_PRG.xInletValveCmd THEN
-
-        GVL_Tank.rActualTankLevel :=
-            GVL_Tank.rActualTankLevel + rInletRatePctPerS;
-
-    END_IF;
+GVL_Tank.xLevelSensorValid :=
+    (GVL_Tank.rLevelCurrent_mA >= 4.0)
+    AND
+    (GVL_Tank.rLevelCurrent_mA <= 20.0);
 
 
-    // Water leaving the tank
-    IF PLC_PRG.xMotorRun AND GVL_IO.xMotorFeedback THEN
+// 2. Diagnostic signal fault
 
-        GVL_Tank.rActualTankLevel :=
-            GVL_Tank.rActualTankLevel - rOutletRatePctPerS;
-
-    END_IF;
+GVL_Tank.xLevelSignalFault :=
+    NOT GVL_Tank.xLevelSensorValid;
 
 
-    // Keep physical level between 0 and 100 %
-    IF GVL_Tank.rActualTankLevel > 100.0 THEN
+// 3. Scale valid 4-20 mA signal to 0-100 %
 
-        GVL_Tank.rActualTankLevel := 100.0;
+IF GVL_Tank.xLevelSensorValid THEN
 
-    ELSIF GVL_Tank.rActualTankLevel < 0.0 THEN
-
-        GVL_Tank.rActualTankLevel := 0.0;
-
-    END_IF;
+    GVL_Tank.rTankLevel :=
+        ((GVL_Tank.rLevelCurrent_mA - 4.0) / 16.0) * 100.0;
 
 END_IF;
 
 
-// ==========================================
-// AUTOMATIC MOTOR FEEDBACK SIMULATION
-// ==========================================
+// 4. High-High process alarm
+// This MUST execute every PLC scan
 
-fbMotorStartSim(
-    IN := PLC_PRG.xMotorRun
-          AND GVL_IO.xMotorHealthy
-          AND NOT GVL_IO.xSimulateMotorFailure,
-    PT := T#2s
-);
-
-
-// Simulated running feedback
-GVL_IO.xMotorFeedback := fbMotorStartSim.Q;
-
-
-// ==========================================
-// LEVEL TRANSMITTER SIMULATION - LT-101
-// ==========================================
-
-IF GVL_IO.xSimulateLevelSignalLoss THEN
-
-    // Fault injection: transmitter signal lost
-    GVL_Tank.rLevelCurrent_mA := 0.0;
-
-ELSE
-
-    // Normal operation:
-    // 0...100 % physical level -> 4...20 mA
-    GVL_Tank.rLevelCurrent_mA :=
-        4.0 + (GVL_Tank.rActualTankLevel / 100.0) * 16.0;
-
-END_IF;
+GVL_Tank.xHighHighLevelAlarm :=
+    GVL_Tank.xLevelSensorValid
+    AND
+    (GVL_Tank.rTankLevel >= 90.0);
