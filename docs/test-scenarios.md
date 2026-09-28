@@ -1,7 +1,7 @@
 # Functional Test Scenarios
 
 ## TC-01 — Normal Pump Start
-
+ 
 ### Initial conditions
 - Tank level is above the minimum operating level.
 - LT-101 signal is valid.
